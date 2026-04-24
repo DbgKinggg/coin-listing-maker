@@ -65,8 +65,8 @@ function CoinOrb({
   ticker: string; showLetter?: boolean;
 }) {
   const g = GRADIENTS[colorIdx] ?? GRADIENTS[0];
-  const bg = (imgSrc && imgBg !== "none")
-    ? imgBg
+  const bg = imgSrc
+    ? (imgBg === "none" ? "transparent" : imgBg)
     : `radial-gradient(circle at 35% 30%, ${g.from}, ${g.to} 70%)`;
   const fs = Math.round(size * 0.37);
   return (
@@ -74,12 +74,12 @@ function CoinOrb({
       width: size, height: size, borderRadius: "50%",
       background: bg,
       boxShadow: `0 ${size * 0.08}px ${size * 0.21}px rgba(255,100,20,0.35), inset 0 ${size * 0.011}px ${size * 0.047}px rgba(255,255,255,0.18), inset 0 ${-size * 0.026}px ${size * 0.105}px rgba(0,0,0,0.4)`,
-      display: "grid", placeItems: "center",
+      display: "flex", alignItems: "center", justifyContent: "center",
       position: "relative", overflow: "hidden", flexShrink: 0,
     }}>
       {imgSrc && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={imgSrc} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+        <img src={imgSrc} alt="" style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: "100%", height: "100%", objectFit: "contain", objectPosition: "center" }} />
       )}
       {showLetter && !imgSrc && (
         <span style={{ fontFamily: "Inter, sans-serif", fontWeight: 900, fontSize: fs, color: "#fff", letterSpacing: -2, textShadow: "0 4px 20px rgba(0,0,0,0.35)", position: "relative", zIndex: 1 }}>
