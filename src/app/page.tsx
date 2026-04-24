@@ -57,7 +57,8 @@ function drawCoin(
   cx: number,
   cy: number,
   r: number,
-  img: HTMLImageElement | null
+  img: HTMLImageElement | null,
+  coinBg: string
 ) {
   ctx.save();
   ctx.translate(cx, cy);
@@ -104,6 +105,11 @@ function drawCoin(
   ctx.arc(0, 0, innerR, 0, Math.PI * 2);
   ctx.clip();
   if (img) {
+    // Fill background behind transparent images
+    if (coinBg !== "none") {
+      ctx.fillStyle = coinBg;
+      ctx.fillRect(-innerR, -innerR, innerR * 2, innerR * 2);
+    }
     const aspect = img.naturalWidth / img.naturalHeight;
     let sw = innerR * 2, sh = innerR * 2;
     if (aspect > 1) sh = sw / aspect;
@@ -156,7 +162,8 @@ function renderCard(
   leverageText: string,
   showLeverage: boolean,
   coinImg: HTMLImageElement | null,
-  logoImg: HTMLImageElement | null
+  logoImg: HTMLImageElement | null,
+  coinBg: string
 ) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
@@ -301,7 +308,7 @@ function renderCard(
   ctx.restore();
 
   // ── 3D coin ───────────────────────────────────────────────────────────────
-  drawCoin(ctx, 1155, 450, 288, coinImg);
+  drawCoin(ctx, 1155, 450, 288, coinImg, coinBg);
 }
 
 // ── UI ────────────────────────────────────────────────────────────────────────
@@ -312,6 +319,7 @@ export default function Page() {
   const [showLeverage, setShowLeverage] = useState(true);
   const [coinImgEl, setCoinImgEl] = useState<HTMLImageElement | null>(null);
   const [coinImgPreview, setCoinImgPreview] = useState<string | null>(null);
+  const [coinBg, setCoinBg] = useState<string>("none");
   const [logoImgEl, setLogoImgEl] = useState<HTMLImageElement | null>(null);
   const [fontsReady, setFontsReady] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -330,8 +338,8 @@ export default function Page() {
   const redraw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas || !fontsReady) return;
-    renderCard(canvas, coinName, leverageText, showLeverage, coinImgEl, logoImgEl);
-  }, [coinName, leverageText, showLeverage, coinImgEl, logoImgEl, fontsReady]);
+    renderCard(canvas, coinName, leverageText, showLeverage, coinImgEl, logoImgEl, coinBg);
+  }, [coinName, leverageText, showLeverage, coinImgEl, logoImgEl, coinBg, fontsReady]);
 
   useEffect(() => { redraw(); }, [redraw]);
 
@@ -405,14 +413,41 @@ export default function Page() {
           <div className="space-y-2">
             <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest">Coin Image</label>
             {coinImgPreview ? (
-              <div className="flex items-center gap-3">
-                <div className="h-14 w-14 rounded-full overflow-hidden border-2 border-white/10 shrink-0">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={coinImgPreview} alt="coin" className="h-full w-full object-cover" />
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-14 w-14 rounded-full overflow-hidden border-2 border-white/10 shrink-0">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={coinImgPreview} alt="coin" className="h-full w-full object-cover" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-white/70 truncate">Image loaded</p>
+                    <button onClick={clearImage} className="text-xs text-red-400/80 hover:text-red-400 transition-colors mt-0.5">Remove</button>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-white/70 truncate">Image loaded</p>
-                  <button onClick={clearImage} className="text-xs text-red-400/80 hover:text-red-400 transition-colors mt-0.5">Remove</button>
+                {/* Coin image background */}
+                <div className="space-y-1.5">
+                  <p className="text-xs text-white/40">Image background</p>
+                  <div className="flex gap-2">
+                    {(["none", "#ffffff", "#000000", "#1a1a1a"] as const).map((bg) => {
+                      const labels: Record<string, string> = { none: "None", "#ffffff": "White", "#000000": "Black", "#1a1a1a": "Dark" };
+                      const active = coinBg === bg;
+                      return (
+                        <button
+                          key={bg}
+                          onClick={() => setCoinBg(bg)}
+                          title={labels[bg]}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all
+                            ${active ? "border-[#FF7A1F] text-white bg-[#FF7A1F]/10" : "border-white/10 text-white/40 hover:border-white/25 hover:text-white/60"}`}
+                        >
+                          <span
+                            className="h-3 w-3 rounded-sm shrink-0 border border-white/20"
+                            style={{ background: bg === "none" ? "conic-gradient(#555 90deg, #888 90deg 180deg, #555 180deg 270deg, #888 270deg)" : bg }}
+                          />
+                          {labels[bg]}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             ) : (
