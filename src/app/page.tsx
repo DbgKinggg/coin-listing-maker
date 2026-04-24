@@ -8,26 +8,64 @@ const CH = 900;
 
 // ── Drawing helpers ───────────────────────────────────────────────────────────
 
-function drawSparkle(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  size: number,
-  opacity = 0.85
-) {
+function drawGrid(ctx: CanvasRenderingContext2D) {
+  const spacing = 72;
   ctx.save();
-  ctx.globalAlpha = opacity;
-  ctx.fillStyle = "#ffffff";
-  ctx.beginPath();
-  for (let i = 0; i < 8; i++) {
-    const angle = (i * Math.PI) / 4 - Math.PI / 2;
-    const r = i % 2 === 0 ? size : size * 0.22;
-    const px = x + r * Math.cos(angle);
-    const py = y + r * Math.sin(angle);
-    i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+  ctx.strokeStyle = "rgba(255,255,255,0.028)";
+  ctx.lineWidth = 1;
+  for (let x = 0; x <= CW; x += spacing) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, CH);
+    ctx.stroke();
   }
-  ctx.closePath();
-  ctx.fill();
+  for (let y = 0; y <= CH; y += spacing) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(CW, y);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawAccentLines(ctx: CanvasRenderingContext2D) {
+  // Diagonal accent lines — top-right quadrant
+  ctx.save();
+  ctx.strokeStyle = "rgba(255,122,31,0.07)";
+  ctx.lineWidth = 1;
+  const lineCount = 18;
+  const spread = 900;
+  const originX = CW + 80;
+  const originY = -80;
+  for (let i = 0; i < lineCount; i++) {
+    const t = i / (lineCount - 1);
+    const endX = t * CW * 0.7;
+    const endY = CH + 50;
+    ctx.beginPath();
+    ctx.moveTo(originX, originY);
+    ctx.lineTo(endX, endY);
+    ctx.stroke();
+  }
+  void spread;
+  ctx.restore();
+}
+
+function drawCircuitDots(ctx: CanvasRenderingContext2D) {
+  // Subtle dot intersections on the grid
+  const spacing = 72;
+  ctx.save();
+  ctx.fillStyle = "rgba(255,122,31,0.18)";
+  const dotPositions = [
+    [3, 2], [7, 5], [2, 7], [5, 9], [10, 3], [14, 6], [18, 2], [20, 8],
+    [9, 11], [16, 10], [13, 1],
+  ];
+  for (const [gx, gy] of dotPositions) {
+    const x = gx * spacing;
+    const y = gy * spacing;
+    ctx.beginPath();
+    ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
   ctx.restore();
 }
 
@@ -37,7 +75,7 @@ function drawCoin(
   cy: number,
   r: number,
   img: HTMLImageElement | null,
-  tilt = -0.18
+  tilt = -0.12
 ) {
   ctx.save();
   ctx.translate(cx, cy);
@@ -45,17 +83,17 @@ function drawCoin(
 
   // Drop shadow
   ctx.save();
-  ctx.shadowColor = "rgba(0,0,0,0.4)";
-  ctx.shadowBlur = 60;
-  ctx.shadowOffsetX = 28;
-  ctx.shadowOffsetY = 40;
+  ctx.shadowColor = "rgba(255,100,0,0.28)";
+  ctx.shadowBlur = 80;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 30;
   ctx.beginPath();
   ctx.arc(0, 0, r, 0, Math.PI * 2);
   ctx.fillStyle = "rgba(0,0,0,0.01)";
   ctx.fill();
   ctx.restore();
 
-  // Coin rim (offset slightly to simulate thickness/perspective)
+  // Coin rim (3D thickness)
   const rimDx = r * 0.07;
   const rimDy = r * 0.09;
   ctx.beginPath();
@@ -66,11 +104,11 @@ function drawCoin(
   );
   rimGrad.addColorStop(0, "#FFA040");
   rimGrad.addColorStop(0.6, "#FF7A1F");
-  rimGrad.addColorStop(1, "#A03800");
+  rimGrad.addColorStop(1, "#7A2800");
   ctx.fillStyle = rimGrad;
   ctx.fill();
 
-  // Coin face gradient
+  // Coin face
   ctx.beginPath();
   ctx.arc(0, 0, r, 0, Math.PI * 2);
   const faceGrad = ctx.createRadialGradient(
@@ -79,7 +117,7 @@ function drawCoin(
   );
   faceGrad.addColorStop(0, "#FFB050");
   faceGrad.addColorStop(0.5, "#FF8820");
-  faceGrad.addColorStop(1, "#CC5200");
+  faceGrad.addColorStop(1, "#991E00");
   ctx.fillStyle = faceGrad;
   ctx.fill();
 
@@ -91,35 +129,30 @@ function drawCoin(
   ctx.clip();
 
   if (img) {
-    // Cover-fit the uploaded image
     const aspect = img.naturalWidth / img.naturalHeight;
     let sw = innerR * 2, sh = innerR * 2;
-    if (aspect > 1) {
-      sh = sw / aspect;
-    } else {
-      sw = sh * aspect;
-    }
+    if (aspect > 1) sh = sw / aspect;
+    else sw = sh * aspect;
     ctx.drawImage(img, -sw / 2, -sh / 2, sw, sh);
   } else {
-    // Dark placeholder with subtle gradient
     const darkGrad = ctx.createRadialGradient(
       -innerR * 0.3, -innerR * 0.3, 0,
       0, 0, innerR
     );
-    darkGrad.addColorStop(0, "#2a2030");
-    darkGrad.addColorStop(1, "#0c0a10");
+    darkGrad.addColorStop(0, "#1a1520");
+    darkGrad.addColorStop(1, "#080608");
     ctx.fillStyle = darkGrad;
     ctx.fillRect(-innerR, -innerR, innerR * 2, innerR * 2);
   }
   ctx.restore();
 
-  // Gloss highlight overlay (top-left arc)
+  // Gloss overlay
   ctx.beginPath();
   ctx.arc(0, 0, r, 0, Math.PI * 2);
   const glossGrad = ctx.createLinearGradient(-r * 0.9, -r * 0.6, r * 0.4, r * 0.5);
-  glossGrad.addColorStop(0, "rgba(255,255,255,0.30)");
-  glossGrad.addColorStop(0.35, "rgba(255,255,255,0.07)");
-  glossGrad.addColorStop(1, "rgba(0,0,0,0.10)");
+  glossGrad.addColorStop(0, "rgba(255,255,255,0.25)");
+  glossGrad.addColorStop(0.35, "rgba(255,255,255,0.05)");
+  glossGrad.addColorStop(1, "rgba(0,0,0,0.12)");
   ctx.fillStyle = glossGrad;
   ctx.fill();
 
@@ -133,7 +166,8 @@ function renderCard(
   coinName: string,
   leverageText: string,
   showLeverage: boolean,
-  coinImg: HTMLImageElement | null
+  coinImg: HTMLImageElement | null,
+  logoImg: HTMLImageElement | null
 ) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
@@ -141,90 +175,114 @@ function renderCard(
   canvas.width = CW;
   canvas.height = CH;
 
-  // ── Background ──────────────────────────────────────────────────────────
-  const bg = ctx.createRadialGradient(
-    CW * 0.27, CH * 0.48, 0,
-    CW * 0.27, CH * 0.48, CW * 0.72
+  // ── Background — very dark ───────────────────────────────────────────────
+  ctx.fillStyle = "#06060a";
+  ctx.fillRect(0, 0, CW, CH);
+
+  // Subtle dark-orange glow from left center
+  const glow = ctx.createRadialGradient(
+    CW * 0.08, CH * 0.52, 0,
+    CW * 0.08, CH * 0.52, CW * 0.68
   );
-  bg.addColorStop(0, "#FFBE55");
-  bg.addColorStop(0.35, "#FF9510");
-  bg.addColorStop(0.72, "#E06800");
-  bg.addColorStop(1, "#B84800");
-  ctx.fillStyle = bg;
+  glow.addColorStop(0, "rgba(255,100,20,0.10)");
+  glow.addColorStop(0.4, "rgba(255,80,10,0.04)");
+  glow.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = glow;
   ctx.fillRect(0, 0, CW, CH);
 
-  // Subtle vignette at corners
-  const vig = ctx.createRadialGradient(CW / 2, CH / 2, CH * 0.3, CW / 2, CH / 2, CW * 0.8);
-  vig.addColorStop(0, "rgba(0,0,0,0)");
-  vig.addColorStop(1, "rgba(0,0,0,0.22)");
-  ctx.fillStyle = vig;
+  // Coin area ambient glow
+  const coinGlow = ctx.createRadialGradient(1200, 440, 100, 1200, 440, 520);
+  coinGlow.addColorStop(0, "rgba(255,120,20,0.12)");
+  coinGlow.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = coinGlow;
   ctx.fillRect(0, 0, CW, CH);
 
-  // ── Sparkles ────────────────────────────────────────────────────────────
-  drawSparkle(ctx, 500,  175, 17, 0.88);
-  drawSparkle(ctx, 225,  390, 11, 0.75);
-  drawSparkle(ctx, 700,  620, 20, 0.90);
-  drawSparkle(ctx, 880,  770, 14, 0.80);
-  drawSparkle(ctx, 1290, 745, 19, 0.85);
-  drawSparkle(ctx, 1400, 270, 15, 0.78);
-  drawSparkle(ctx, 1140, 175, 12, 0.72);
-  drawSparkle(ctx, 1490, 560,  9, 0.62);
+  // ── Grid ─────────────────────────────────────────────────────────────────
+  drawGrid(ctx);
+  drawAccentLines(ctx);
+  drawCircuitDots(ctx);
 
-  // ── Logo — top left ─────────────────────────────────────────────────────
-  const logoSize = 34;
-
+  // ── Vertical divider line (left content area) ─────────────────────────
   ctx.save();
+  const divGrad = ctx.createLinearGradient(880, 0, 880, CH);
+  divGrad.addColorStop(0, "rgba(255,122,31,0)");
+  divGrad.addColorStop(0.35, "rgba(255,122,31,0.18)");
+  divGrad.addColorStop(0.65, "rgba(255,122,31,0.18)");
+  divGrad.addColorStop(1, "rgba(255,122,31,0)");
+  ctx.strokeStyle = divGrad;
+  ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.arc(68 + logoSize / 2, 72, logoSize / 2, 0, Math.PI * 2);
-  ctx.fillStyle = "#FF7A1F";
-  ctx.fill();
-  ctx.fillStyle = "#fff";
-  ctx.font = `bold ${logoSize * 0.6}px Inter, system-ui, sans-serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText("T", 68 + logoSize / 2, 72);
+  ctx.moveTo(880, 0);
+  ctx.lineTo(880, CH);
+  ctx.stroke();
   ctx.restore();
 
-  ctx.textAlign = "left";
-  ctx.textBaseline = "alphabetic";
-  ctx.font = "bold 28px Inter, system-ui, sans-serif";
-  ctx.fillStyle = "rgba(0,0,0,0.72)";
-  ctx.fillText("tangerine.exchange", 68 + logoSize + 12, 82);
+  // ── Logo — top left ──────────────────────────────────────────────────────
+  if (logoImg) {
+    const logoH = 36;
+    const logoAspect = logoImg.naturalWidth / logoImg.naturalHeight;
+    const logoW = logoH * logoAspect;
+    ctx.save();
+    ctx.globalAlpha = 0.92;
+    ctx.drawImage(logoImg, 72, 54, logoW, logoH);
+    ctx.restore();
+  } else {
+    ctx.fillStyle = "#FF7A1F";
+    ctx.font = "bold 26px Inter, system-ui, sans-serif";
+    ctx.fillText("tangerine.exchange", 72, 82);
+  }
 
-  // ── "NEW LISTING" ────────────────────────────────────────────────────────
-  ctx.font = "bold 68px Inter, system-ui, sans-serif";
-  ctx.fillStyle = "rgba(0,0,0,0.80)";
-  ctx.fillText("NEW LISTING", 72, 340);
+  // ── Orange accent bar below logo ─────────────────────────────────────────
+  ctx.save();
+  ctx.fillStyle = "#FF7A1F";
+  ctx.fillRect(72, 104, 48, 2);
+  ctx.restore();
+
+  // ── "NEW LISTING" label ──────────────────────────────────────────────────
+  ctx.save();
+  ctx.font = "600 26px Inter, system-ui, sans-serif";
+  ctx.fillStyle = "#FF7A1F";
+  ctx.letterSpacing = "4px";
+  ctx.fillText("NEW LISTING", 72, 310);
+  ctx.restore();
+
+  // Thin rule below label
+  ctx.save();
+  ctx.fillStyle = "rgba(255,122,31,0.25)";
+  ctx.fillRect(72, 322, 360, 1);
+  ctx.restore();
 
   // ── Coin name (auto-scale) ───────────────────────────────────────────────
   const name = (coinName.trim() || "COIN").toUpperCase();
-  let fs = 190;
-  const maxWidth = 820;
+  let fs = 210;
+  const maxWidth = 740;
   ctx.font = `900 ${fs}px Inter, system-ui, sans-serif`;
-  while (ctx.measureText(name).width > maxWidth && fs > 52) {
+  while (ctx.measureText(name).width > maxWidth && fs > 60) {
     fs -= 4;
     ctx.font = `900 ${fs}px Inter, system-ui, sans-serif`;
   }
+  // Thin stroke for tech feel
   ctx.save();
-  ctx.shadowColor = "rgba(0,0,0,0.18)";
-  ctx.shadowBlur = 0;
-  ctx.shadowOffsetX = 4;
-  ctx.shadowOffsetY = 4;
-  ctx.fillStyle = "#050505";
-  ctx.fillText(name, 72, 548);
+  ctx.strokeStyle = "rgba(255,122,31,0.35)";
+  ctx.lineWidth = 1.5;
+  ctx.lineJoin = "round";
+  ctx.strokeText(name, 72, 560);
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillText(name, 72, 560);
   ctx.restore();
 
   // ── Leverage badge ───────────────────────────────────────────────────────
   if (showLeverage && leverageText.trim()) {
     const label = leverageText.trim();
-    ctx.font = "bold 40px Inter, system-ui, sans-serif";
+    ctx.font = "600 34px Inter, system-ui, sans-serif";
     const tw = ctx.measureText(label).width;
-    const bw = tw + 56;
-    const bh = 66;
+    const bw = tw + 48;
+    const bh = 58;
     const bx = 72;
-    const by = 598;
-    const br = bh / 2;
+    const by = 614;
+    const br = 6;
 
+    // Badge background
     ctx.beginPath();
     ctx.moveTo(bx + br, by);
     ctx.lineTo(bx + bw - br, by);
@@ -236,16 +294,19 @@ function renderCard(
     ctx.lineTo(bx, by + br);
     ctx.arcTo(bx, by, bx + br, by, br);
     ctx.closePath();
-    ctx.fillStyle = "rgba(8,8,8,0.88)";
+    ctx.fillStyle = "rgba(255,122,31,0.12)";
     ctx.fill();
+    ctx.strokeStyle = "rgba(255,122,31,0.55)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
 
-    ctx.fillStyle = "#FF7A1F";
-    ctx.font = "bold 40px Inter, system-ui, sans-serif";
-    ctx.fillText(label, bx + 28, by + bh - 14);
+    ctx.fillStyle = "#FF9A50";
+    ctx.font = "600 34px Inter, system-ui, sans-serif";
+    ctx.fillText(label, bx + 24, by + bh - 14);
   }
 
-  // ── 3D Coin ──────────────────────────────────────────────────────────────
-  drawCoin(ctx, 1185, 440, 278, coinImg);
+  // ── 3D Coin ───────────────────────────────────────────────────────────────
+  drawCoin(ctx, 1200, 450, 280, coinImg);
 }
 
 // ── UI Component ──────────────────────────────────────────────────────────────
@@ -257,20 +318,27 @@ export default function Page() {
   const [showLeverage, setShowLeverage] = useState(true);
   const [coinImgEl, setCoinImgEl] = useState<HTMLImageElement | null>(null);
   const [coinImgPreview, setCoinImgPreview] = useState<string | null>(null);
+  const [logoImgEl, setLogoImgEl] = useState<HTMLImageElement | null>(null);
   const [fontsReady, setFontsReady] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Wait for Inter to load before first draw
   useEffect(() => {
     document.fonts.ready.then(() => setFontsReady(true));
+  }, []);
+
+  // Load the Tangerine logo once
+  useEffect(() => {
+    const img = new Image();
+    img.onload = () => setLogoImgEl(img);
+    img.src = "/logo-text-white.png";
   }, []);
 
   const redraw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas || !fontsReady) return;
-    renderCard(canvas, coinName, leverageText, showLeverage, coinImgEl);
-  }, [coinName, leverageText, showLeverage, coinImgEl, fontsReady]);
+    renderCard(canvas, coinName, leverageText, showLeverage, coinImgEl, logoImgEl);
+  }, [coinName, leverageText, showLeverage, coinImgEl, logoImgEl, fontsReady]);
 
   useEffect(() => {
     redraw();
@@ -296,7 +364,6 @@ export default function Page() {
   }
 
   function handleDragLeave(e: React.DragEvent) {
-    // Only clear if leaving the drop zone entirely (not a child element)
     if (!e.currentTarget.contains(e.relatedTarget as Node)) {
       setIsDragging(false);
     }
@@ -453,13 +520,10 @@ export default function Page() {
         {/* ── Canvas preview ──────────────────────────────────────────────── */}
         <main className="flex-1 flex flex-col items-center justify-center p-6 lg:p-10 bg-[#0c0c0e]">
           <div className="w-full max-w-5xl">
-            {/* Label */}
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs text-white/30 font-mono">preview — 1600 × 900 · 16:9</span>
               <span className="text-xs text-white/20">PNG export</span>
             </div>
-
-            {/* Canvas wrapper with rounded corners + shadow */}
             <div className="rounded-2xl overflow-hidden shadow-2xl shadow-black/60 ring-1 ring-white/[0.05]">
               <canvas
                 ref={canvasRef}
