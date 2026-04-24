@@ -2,16 +2,40 @@
 
 import { useState, useRef, useEffect, useCallback, ChangeEvent } from "react";
 
-// ── Canvas output dimensions — 1600×900 (16:9) optimal for X / Twitter ───────
 const CW = 1600;
 const CH = 900;
 
-// ── Drawing helpers ───────────────────────────────────────────────────────────
+// Manual letter-spacing helper (ctx.letterSpacing has patchy browser support)
+function fillTextTracked(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  spacing: number
+) {
+  let cursor = x;
+  for (const ch of text) {
+    ctx.fillText(ch, cursor, y);
+    cursor += ctx.measureText(ch).width + spacing;
+  }
+}
+
+function trackedWidth(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  spacing: number
+) {
+  let w = 0;
+  for (const ch of text) {
+    w += ctx.measureText(ch).width + spacing;
+  }
+  return w - spacing;
+}
 
 function drawGrid(ctx: CanvasRenderingContext2D) {
-  const spacing = 72;
+  const spacing = 80;
   ctx.save();
-  ctx.strokeStyle = "rgba(255,255,255,0.028)";
+  ctx.strokeStyle = "rgba(255,255,255,0.022)";
   ctx.lineWidth = 1;
   for (let x = 0; x <= CW; x += spacing) {
     ctx.beginPath();
@@ -28,106 +52,57 @@ function drawGrid(ctx: CanvasRenderingContext2D) {
   ctx.restore();
 }
 
-function drawAccentLines(ctx: CanvasRenderingContext2D) {
-  // Diagonal accent lines — top-right quadrant
-  ctx.save();
-  ctx.strokeStyle = "rgba(255,122,31,0.07)";
-  ctx.lineWidth = 1;
-  const lineCount = 18;
-  const spread = 900;
-  const originX = CW + 80;
-  const originY = -80;
-  for (let i = 0; i < lineCount; i++) {
-    const t = i / (lineCount - 1);
-    const endX = t * CW * 0.7;
-    const endY = CH + 50;
-    ctx.beginPath();
-    ctx.moveTo(originX, originY);
-    ctx.lineTo(endX, endY);
-    ctx.stroke();
-  }
-  void spread;
-  ctx.restore();
-}
-
-function drawCircuitDots(ctx: CanvasRenderingContext2D) {
-  // Subtle dot intersections on the grid
-  const spacing = 72;
-  ctx.save();
-  ctx.fillStyle = "rgba(255,122,31,0.18)";
-  const dotPositions = [
-    [3, 2], [7, 5], [2, 7], [5, 9], [10, 3], [14, 6], [18, 2], [20, 8],
-    [9, 11], [16, 10], [13, 1],
-  ];
-  for (const [gx, gy] of dotPositions) {
-    const x = gx * spacing;
-    const y = gy * spacing;
-    ctx.beginPath();
-    ctx.arc(x, y, 2.5, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.restore();
-}
-
 function drawCoin(
   ctx: CanvasRenderingContext2D,
   cx: number,
   cy: number,
   r: number,
-  img: HTMLImageElement | null,
-  tilt = -0.12
+  img: HTMLImageElement | null
 ) {
   ctx.save();
   ctx.translate(cx, cy);
-  ctx.rotate(tilt);
 
-  // Drop shadow
+  // Outer glow ring
   ctx.save();
-  ctx.shadowColor = "rgba(255,100,0,0.28)";
-  ctx.shadowBlur = 80;
-  ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 30;
+  ctx.shadowColor = "rgba(255,122,31,0.45)";
+  ctx.shadowBlur = 90;
   ctx.beginPath();
   ctx.arc(0, 0, r, 0, Math.PI * 2);
-  ctx.fillStyle = "rgba(0,0,0,0.01)";
+  ctx.fillStyle = "rgba(0,0,0,0.001)";
   ctx.fill();
   ctx.restore();
 
-  // Coin rim (3D thickness)
-  const rimDx = r * 0.07;
-  const rimDy = r * 0.09;
+  // Rim (3D depth)
+  const rimDx = r * 0.065;
+  const rimDy = r * 0.085;
   ctx.beginPath();
   ctx.arc(rimDx, rimDy, r, 0, Math.PI * 2);
   const rimGrad = ctx.createRadialGradient(
-    rimDx - r * 0.25, rimDy - r * 0.25, r * 0.2,
+    rimDx - r * 0.2, rimDy - r * 0.2, r * 0.1,
     rimDx, rimDy, r
   );
   rimGrad.addColorStop(0, "#FFA040");
-  rimGrad.addColorStop(0.6, "#FF7A1F");
-  rimGrad.addColorStop(1, "#7A2800");
+  rimGrad.addColorStop(0.55, "#D96010");
+  rimGrad.addColorStop(1, "#5A1800");
   ctx.fillStyle = rimGrad;
   ctx.fill();
 
-  // Coin face
+  // Face
   ctx.beginPath();
   ctx.arc(0, 0, r, 0, Math.PI * 2);
-  const faceGrad = ctx.createRadialGradient(
-    -r * 0.28, -r * 0.28, r * 0.04,
-    0, 0, r
-  );
-  faceGrad.addColorStop(0, "#FFB050");
-  faceGrad.addColorStop(0.5, "#FF8820");
-  faceGrad.addColorStop(1, "#991E00");
+  const faceGrad = ctx.createRadialGradient(-r * 0.3, -r * 0.3, r * 0.02, 0, 0, r);
+  faceGrad.addColorStop(0, "#FFB560");
+  faceGrad.addColorStop(0.45, "#FF8C28");
+  faceGrad.addColorStop(1, "#7A1E00");
   ctx.fillStyle = faceGrad;
   ctx.fill();
 
-  // Inner image / logo area
+  // Coin logo clip area
   const innerR = r * 0.76;
   ctx.save();
   ctx.beginPath();
   ctx.arc(0, 0, innerR, 0, Math.PI * 2);
   ctx.clip();
-
   if (img) {
     const aspect = img.naturalWidth / img.naturalHeight;
     let sw = innerR * 2, sh = innerR * 2;
@@ -135,32 +110,46 @@ function drawCoin(
     else sw = sh * aspect;
     ctx.drawImage(img, -sw / 2, -sh / 2, sw, sh);
   } else {
-    const darkGrad = ctx.createRadialGradient(
-      -innerR * 0.3, -innerR * 0.3, 0,
-      0, 0, innerR
-    );
-    darkGrad.addColorStop(0, "#1a1520");
+    const darkGrad = ctx.createRadialGradient(-innerR * 0.3, -innerR * 0.3, 0, 0, 0, innerR);
+    darkGrad.addColorStop(0, "#1c1820");
     darkGrad.addColorStop(1, "#080608");
     ctx.fillStyle = darkGrad;
     ctx.fillRect(-innerR, -innerR, innerR * 2, innerR * 2);
   }
   ctx.restore();
 
-  // Gloss overlay
+  // Gloss
   ctx.beginPath();
   ctx.arc(0, 0, r, 0, Math.PI * 2);
-  const glossGrad = ctx.createLinearGradient(-r * 0.9, -r * 0.6, r * 0.4, r * 0.5);
-  glossGrad.addColorStop(0, "rgba(255,255,255,0.25)");
-  glossGrad.addColorStop(0.35, "rgba(255,255,255,0.05)");
-  glossGrad.addColorStop(1, "rgba(0,0,0,0.12)");
-  ctx.fillStyle = glossGrad;
+  const gloss = ctx.createLinearGradient(-r, -r * 0.7, r * 0.3, r * 0.6);
+  gloss.addColorStop(0, "rgba(255,255,255,0.28)");
+  gloss.addColorStop(0.4, "rgba(255,255,255,0.04)");
+  gloss.addColorStop(1, "rgba(0,0,0,0.08)");
+  ctx.fillStyle = gloss;
   ctx.fill();
 
   ctx.restore();
 }
 
-// ── Main render function ──────────────────────────────────────────────────────
+// ── Rounded rectangle helper ──────────────────────────────────────────────────
+function roundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number, w: number, h: number, r: number
+) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arcTo(x + w, y, x + w, y + r, r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+  ctx.lineTo(x + r, y + h);
+  ctx.arcTo(x, y + h, x, y + h - r, r);
+  ctx.lineTo(x, y + r);
+  ctx.arcTo(x, y, x + r, y, r);
+  ctx.closePath();
+}
 
+// ── Main render ───────────────────────────────────────────────────────────────
 function renderCard(
   canvas: HTMLCanvasElement,
   coinName: string,
@@ -171,146 +160,151 @@ function renderCard(
 ) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
-
   canvas.width = CW;
   canvas.height = CH;
 
-  // ── Background — very dark ───────────────────────────────────────────────
-  ctx.fillStyle = "#06060a";
+  // ── Background ───────────────────────────────────────────────────────────
+  ctx.fillStyle = "#07070b";
   ctx.fillRect(0, 0, CW, CH);
 
-  // Subtle dark-orange glow from left center
-  const glow = ctx.createRadialGradient(
-    CW * 0.08, CH * 0.52, 0,
-    CW * 0.08, CH * 0.52, CW * 0.68
-  );
-  glow.addColorStop(0, "rgba(255,100,20,0.10)");
-  glow.addColorStop(0.4, "rgba(255,80,10,0.04)");
-  glow.addColorStop(1, "rgba(0,0,0,0)");
-  ctx.fillStyle = glow;
+  // Left-center warm glow
+  const leftGlow = ctx.createRadialGradient(200, CH * 0.5, 0, 200, CH * 0.5, 700);
+  leftGlow.addColorStop(0, "rgba(255,110,20,0.09)");
+  leftGlow.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = leftGlow;
   ctx.fillRect(0, 0, CW, CH);
 
-  // Coin area ambient glow
-  const coinGlow = ctx.createRadialGradient(1200, 440, 100, 1200, 440, 520);
-  coinGlow.addColorStop(0, "rgba(255,120,20,0.12)");
+  // Coin area warm glow
+  const coinGlow = ctx.createRadialGradient(1145, 450, 80, 1145, 450, 480);
+  coinGlow.addColorStop(0, "rgba(255,130,20,0.15)");
+  coinGlow.addColorStop(0.6, "rgba(255,90,10,0.05)");
   coinGlow.addColorStop(1, "rgba(0,0,0,0)");
   ctx.fillStyle = coinGlow;
   ctx.fillRect(0, 0, CW, CH);
 
   // ── Grid ─────────────────────────────────────────────────────────────────
   drawGrid(ctx);
-  drawAccentLines(ctx);
-  drawCircuitDots(ctx);
 
-  // ── Vertical divider line (left content area) ─────────────────────────
+  // ── Horizontal separator line ─────────────────────────────────────────────
+  // Thin glowing line at ~36% from top
+  const sepY = 330;
   ctx.save();
-  const divGrad = ctx.createLinearGradient(880, 0, 880, CH);
-  divGrad.addColorStop(0, "rgba(255,122,31,0)");
-  divGrad.addColorStop(0.35, "rgba(255,122,31,0.18)");
-  divGrad.addColorStop(0.65, "rgba(255,122,31,0.18)");
-  divGrad.addColorStop(1, "rgba(255,122,31,0)");
-  ctx.strokeStyle = divGrad;
+  const sepGrad = ctx.createLinearGradient(72, sepY, 800, sepY);
+  sepGrad.addColorStop(0, "rgba(255,122,31,0.7)");
+  sepGrad.addColorStop(0.6, "rgba(255,122,31,0.2)");
+  sepGrad.addColorStop(1, "rgba(255,122,31,0)");
+  ctx.strokeStyle = sepGrad;
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(880, 0);
-  ctx.lineTo(880, CH);
+  ctx.moveTo(72, sepY);
+  ctx.lineTo(820, sepY);
   ctx.stroke();
   ctx.restore();
 
-  // ── Logo — top left ──────────────────────────────────────────────────────
+  // ── Logo — top left ───────────────────────────────────────────────────────
   if (logoImg) {
-    const logoH = 36;
+    const logoH = 38;
     const logoAspect = logoImg.naturalWidth / logoImg.naturalHeight;
     const logoW = logoH * logoAspect;
     ctx.save();
-    ctx.globalAlpha = 0.92;
-    ctx.drawImage(logoImg, 72, 54, logoW, logoH);
+    ctx.globalAlpha = 0.9;
+    ctx.drawImage(logoImg, 72, 60, logoW, logoH);
     ctx.restore();
-  } else {
-    ctx.fillStyle = "#FF7A1F";
-    ctx.font = "bold 26px Inter, system-ui, sans-serif";
-    ctx.fillText("tangerine.exchange", 72, 82);
   }
 
-  // ── Orange accent bar below logo ─────────────────────────────────────────
+  // ── "NEW LISTING" badge ───────────────────────────────────────────────────
+  const badgeLabel = "NEW LISTING";
+  ctx.font = "700 22px Inter, system-ui, sans-serif";
+  const badgeTracking = 5;
+  const badgeTW = trackedWidth(ctx, badgeLabel, badgeTracking);
+  const badgePadX = 22, badgePadY = 10;
+  const badgeW = badgeTW + badgePadX * 2;
+  const badgeH = 42;
+  const badgeX = 72;
+  const badgeY = 228;
+
   ctx.save();
-  ctx.fillStyle = "#FF7A1F";
-  ctx.fillRect(72, 104, 48, 2);
+  roundRect(ctx, badgeX, badgeY, badgeW, badgeH, 6);
+  ctx.fillStyle = "rgba(255,122,31,0.14)";
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255,122,31,0.6)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  ctx.fillStyle = "#FF9A50";
+  fillTextTracked(ctx, badgeLabel, badgeX + badgePadX, badgeY + badgeH - 13, badgeTracking);
   ctx.restore();
 
-  // ── "NEW LISTING" label ──────────────────────────────────────────────────
-  ctx.save();
-  ctx.font = "600 26px Inter, system-ui, sans-serif";
-  ctx.fillStyle = "#FF7A1F";
-  ctx.letterSpacing = "4px";
-  ctx.fillText("NEW LISTING", 72, 310);
-  ctx.restore();
-
-  // Thin rule below label
-  ctx.save();
-  ctx.fillStyle = "rgba(255,122,31,0.25)";
-  ctx.fillRect(72, 322, 360, 1);
-  ctx.restore();
-
-  // ── Coin name (auto-scale) ───────────────────────────────────────────────
+  // ── Coin name ─────────────────────────────────────────────────────────────
   const name = (coinName.trim() || "COIN").toUpperCase();
-  let fs = 210;
-  const maxWidth = 740;
+  let fs = 220;
+  const maxW = 760;
   ctx.font = `900 ${fs}px Inter, system-ui, sans-serif`;
-  while (ctx.measureText(name).width > maxWidth && fs > 60) {
+  while (ctx.measureText(name).width > maxW && fs > 64) {
     fs -= 4;
     ctx.font = `900 ${fs}px Inter, system-ui, sans-serif`;
   }
-  // Thin stroke for tech feel
   ctx.save();
-  ctx.strokeStyle = "rgba(255,122,31,0.35)";
-  ctx.lineWidth = 1.5;
-  ctx.lineJoin = "round";
-  ctx.strokeText(name, 72, 560);
+  // Subtle dark shadow for depth
+  ctx.shadowColor = "rgba(0,0,0,0.6)";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 3;
+  ctx.shadowOffsetY = 5;
   ctx.fillStyle = "#FFFFFF";
   ctx.fillText(name, 72, 560);
   ctx.restore();
 
-  // ── Leverage badge ───────────────────────────────────────────────────────
+  // ── Leverage / tag badge ──────────────────────────────────────────────────
   if (showLeverage && leverageText.trim()) {
     const label = leverageText.trim();
-    ctx.font = "600 34px Inter, system-ui, sans-serif";
-    const tw = ctx.measureText(label).width;
-    const bw = tw + 48;
-    const bh = 58;
-    const bx = 72;
-    const by = 614;
-    const br = 6;
+    ctx.font = "600 32px Inter, system-ui, sans-serif";
+    const lw = ctx.measureText(label).width;
+    const lbw = lw + 44;
+    const lbh = 54;
+    const lbx = 72;
+    const lby = 604;
 
-    // Badge background
-    ctx.beginPath();
-    ctx.moveTo(bx + br, by);
-    ctx.lineTo(bx + bw - br, by);
-    ctx.arcTo(bx + bw, by, bx + bw, by + br, br);
-    ctx.lineTo(bx + bw, by + bh - br);
-    ctx.arcTo(bx + bw, by + bh, bx + bw - br, by + bh, br);
-    ctx.lineTo(bx + br, by + bh);
-    ctx.arcTo(bx, by + bh, bx, by + bh - br, br);
-    ctx.lineTo(bx, by + br);
-    ctx.arcTo(bx, by, bx + br, by, br);
-    ctx.closePath();
-    ctx.fillStyle = "rgba(255,122,31,0.12)";
+    ctx.save();
+    roundRect(ctx, lbx, lby, lbw, lbh, 8);
+    ctx.fillStyle = "rgba(255,122,31,0.10)";
     ctx.fill();
-    ctx.strokeStyle = "rgba(255,122,31,0.55)";
+    ctx.strokeStyle = "rgba(255,122,31,0.45)";
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    ctx.fillStyle = "#FF9A50";
-    ctx.font = "600 34px Inter, system-ui, sans-serif";
-    ctx.fillText(label, bx + 24, by + bh - 14);
+    ctx.fillStyle = "#FFA060";
+    ctx.font = "600 32px Inter, system-ui, sans-serif";
+    ctx.fillText(label, lbx + 22, lby + lbh - 13);
+    ctx.restore();
   }
 
-  // ── 3D Coin ───────────────────────────────────────────────────────────────
-  drawCoin(ctx, 1200, 450, 280, coinImg);
+  // ── Tagline at bottom ─────────────────────────────────────────────────────
+  ctx.save();
+  ctx.font = "400 24px Inter, system-ui, sans-serif";
+  ctx.fillStyle = "rgba(255,255,255,0.28)";
+  ctx.fillText("Trade now on app.tangerine.exchange", 72, CH - 56);
+  ctx.restore();
+
+  // ── Vertical separator right of text area ─────────────────────────────────
+  ctx.save();
+  const vsGrad = ctx.createLinearGradient(860, 0, 860, CH);
+  vsGrad.addColorStop(0, "rgba(255,122,31,0)");
+  vsGrad.addColorStop(0.3, "rgba(255,122,31,0.15)");
+  vsGrad.addColorStop(0.7, "rgba(255,122,31,0.15)");
+  vsGrad.addColorStop(1, "rgba(255,122,31,0)");
+  ctx.strokeStyle = vsGrad;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(860, 0);
+  ctx.lineTo(860, CH);
+  ctx.stroke();
+  ctx.restore();
+
+  // ── 3D coin ───────────────────────────────────────────────────────────────
+  drawCoin(ctx, 1155, 450, 288, coinImg);
 }
 
-// ── UI Component ──────────────────────────────────────────────────────────────
-
+// ── UI ────────────────────────────────────────────────────────────────────────
 export default function Page() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [coinName, setCoinName] = useState("BTC");
@@ -327,7 +321,6 @@ export default function Page() {
     document.fonts.ready.then(() => setFontsReady(true));
   }, []);
 
-  // Load the Tangerine logo once
   useEffect(() => {
     const img = new Image();
     img.onload = () => setLogoImgEl(img);
@@ -340,9 +333,7 @@ export default function Page() {
     renderCard(canvas, coinName, leverageText, showLeverage, coinImgEl, logoImgEl);
   }, [coinName, leverageText, showLeverage, coinImgEl, logoImgEl, fontsReady]);
 
-  useEffect(() => {
-    redraw();
-  }, [redraw]);
+  useEffect(() => { redraw(); }, [redraw]);
 
   function loadFile(file: File) {
     if (!file.type.startsWith("image/")) return;
@@ -364,9 +355,7 @@ export default function Page() {
   }
 
   function handleDragLeave(e: React.DragEvent) {
-    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-      setIsDragging(false);
-    }
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragging(false);
   }
 
   function handleDrop(e: React.DragEvent) {
@@ -393,25 +382,17 @@ export default function Page() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0b] text-white flex flex-col">
-      {/* Header */}
       <header className="border-b border-white/[0.06] px-6 py-4 flex items-center gap-3">
-        <div className="h-7 w-7 rounded-full bg-[#FF7A1F] flex items-center justify-center text-white font-bold text-sm">
-          T
-        </div>
+        <div className="h-7 w-7 rounded-full bg-[#FF7A1F] flex items-center justify-center text-white font-bold text-sm">T</div>
         <span className="font-semibold text-white/90">Listing Card Maker</span>
         <span className="ml-2 text-xs text-white/30 font-mono">tangerine.exchange</span>
       </header>
 
-      {/* Body */}
       <div className="flex flex-col lg:flex-row flex-1 gap-0">
-        {/* ── Controls panel ─────────────────────────────────────────────── */}
         <aside className="w-full lg:w-[340px] shrink-0 border-b lg:border-b-0 lg:border-r border-white/[0.06] p-6 space-y-6">
 
-          {/* Coin Name */}
           <div className="space-y-2">
-            <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest">
-              Coin Ticker
-            </label>
+            <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest">Coin Ticker</label>
             <input
               type="text"
               value={coinName}
@@ -421,11 +402,8 @@ export default function Page() {
             />
           </div>
 
-          {/* Coin Image Upload */}
           <div className="space-y-2">
-            <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest">
-              Coin Image
-            </label>
+            <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest">Coin Image</label>
             {coinImgPreview ? (
               <div className="flex items-center gap-3">
                 <div className="h-14 w-14 rounded-full overflow-hidden border-2 border-white/10 shrink-0">
@@ -434,12 +412,7 @@ export default function Page() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-white/70 truncate">Image loaded</p>
-                  <button
-                    onClick={clearImage}
-                    className="text-xs text-red-400/80 hover:text-red-400 transition-colors mt-0.5"
-                  >
-                    Remove
-                  </button>
+                  <button onClick={clearImage} className="text-xs text-red-400/80 hover:text-red-400 transition-colors mt-0.5">Remove</button>
                 </div>
               </div>
             ) : (
@@ -458,33 +431,20 @@ export default function Page() {
                 <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
                 </svg>
-                <span className="text-xs font-medium">
-                  {isDragging ? "Drop to use" : "Click or drop image here"}
-                </span>
+                <span className="text-xs font-medium">{isDragging ? "Drop to use" : "Click or drop image here"}</span>
               </button>
             )}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleImageUpload}
-            />
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
           </div>
 
-          {/* Leverage Label */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-white/50 uppercase tracking-widest">
-                Leverage Label
-              </label>
+              <label className="text-xs font-semibold text-white/50 uppercase tracking-widest">Leverage Label</label>
               <button
                 onClick={() => setShowLeverage((v) => !v)}
                 className={`relative h-5 w-9 rounded-full transition-colors ${showLeverage ? "bg-[#FF7A1F]" : "bg-white/10"}`}
               >
-                <span
-                  className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${showLeverage ? "translate-x-4" : "translate-x-0.5"}`}
-                />
+                <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${showLeverage ? "translate-x-4" : "translate-x-0.5"}`} />
               </button>
             </div>
             {showLeverage && (
@@ -498,10 +458,8 @@ export default function Page() {
             )}
           </div>
 
-          {/* Divider */}
           <div className="border-t border-white/[0.06]" />
 
-          {/* Download */}
           <button
             onClick={download}
             className="w-full h-12 rounded-xl bg-[#FF7A1F] hover:bg-[#FF8F3F] active:bg-[#E06010] text-white font-bold text-sm transition-colors flex items-center justify-center gap-2"
@@ -517,7 +475,6 @@ export default function Page() {
           </p>
         </aside>
 
-        {/* ── Canvas preview ──────────────────────────────────────────────── */}
         <main className="flex-1 flex flex-col items-center justify-center p-6 lg:p-10 bg-[#0c0c0e]">
           <div className="w-full max-w-5xl">
             <div className="flex items-center justify-between mb-3">
@@ -525,10 +482,7 @@ export default function Page() {
               <span className="text-xs text-white/20">PNG export</span>
             </div>
             <div className="rounded-2xl overflow-hidden shadow-2xl shadow-black/60 ring-1 ring-white/[0.05]">
-              <canvas
-                ref={canvasRef}
-                style={{ width: "100%", height: "auto", display: "block" }}
-              />
+              <canvas ref={canvasRef} style={{ width: "100%", height: "auto", display: "block" }} />
             </div>
           </div>
         </main>
