@@ -399,15 +399,13 @@ export default function Page() {
 
           {/* Leverage */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-white/50 uppercase tracking-widest">Leverage Label</label>
-              <button onClick={() => setShowLeverage(v => !v)} className={`relative h-5 w-9 rounded-full transition-colors ${showLeverage ? "bg-[#FF7A1F]" : "bg-white/10"}`}>
-                <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${showLeverage ? "translate-x-4" : "translate-x-0.5"}`} />
+            <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest">Leverage Label</label>
+            <div className="flex gap-2">
+              <input type="text" value={leverageText} onChange={(e) => setLeverageText(e.target.value.slice(0, 40))} placeholder="Up to 50× Leverage" disabled={!showLeverage} className="flex-1 bg-[#18181b] border border-white/[0.08] rounded-xl px-4 py-3 text-white text-sm placeholder:text-white/20 focus:outline-none focus:border-[#FF7A1F]/60 focus:ring-1 focus:ring-[#FF7A1F]/30 transition-all disabled:opacity-40" />
+              <button onClick={() => setShowLeverage(v => !v)} className={`relative h-[46px] w-11 shrink-0 rounded-xl transition-colors ${showLeverage ? "bg-[#FF7A1F]" : "bg-white/10"}`}>
+                <span className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-4 w-4 rounded-full bg-white shadow transition-opacity ${showLeverage ? "opacity-100" : "opacity-60"}`} />
               </button>
             </div>
-            {showLeverage && (
-              <input type="text" value={leverageText} onChange={(e) => setLeverageText(e.target.value.slice(0, 40))} placeholder="Up to 50× Leverage" className="w-full bg-[#18181b] border border-white/[0.08] rounded-xl px-4 py-3 text-white text-sm placeholder:text-white/20 focus:outline-none focus:border-[#FF7A1F]/60 focus:ring-1 focus:ring-[#FF7A1F]/30 transition-all" />
-            )}
           </div>
 
           {/* Coin Image */}
@@ -454,11 +452,11 @@ export default function Page() {
           {!coinImg && (
             <div className="space-y-2">
               <label className="block text-xs font-semibold text-white/50 uppercase tracking-widest">Coin Color</label>
-              <div className="grid grid-cols-4 gap-1.5">
+              <div className="flex gap-2 flex-wrap">
                 {GRADIENTS.map((g, i) => (
                   <button key={i} onClick={() => setColorIdx(i)} title={g.label}
-                    className={`h-9 rounded-lg transition-all border-2 ${colorIdx === i ? "border-white scale-105" : "border-transparent hover:scale-105"}`}
-                    style={{ background: `linear-gradient(135deg, ${g.from}, ${g.to})` }}
+                    className={`h-7 w-7 rounded-full transition-all ring-offset-[#0a0a0b] ${colorIdx === i ? "ring-2 ring-white ring-offset-2 scale-110" : "hover:scale-110"}`}
+                    style={{ background: `radial-gradient(circle at 35% 30%, ${g.from}, ${g.to} 70%)` }}
                   />
                 ))}
               </div>
