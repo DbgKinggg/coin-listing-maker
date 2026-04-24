@@ -258,6 +258,7 @@ export default function Page() {
   const [coinImgEl, setCoinImgEl] = useState<HTMLImageElement | null>(null);
   const [coinImgPreview, setCoinImgPreview] = useState<string | null>(null);
   const [fontsReady, setFontsReady] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Wait for Inter to load before first draw
@@ -275,14 +276,37 @@ export default function Page() {
     redraw();
   }, [redraw]);
 
-  function handleImageUpload(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  function loadFile(file: File) {
+    if (!file.type.startsWith("image/")) return;
     const url = URL.createObjectURL(file);
     setCoinImgPreview(url);
     const img = new Image();
     img.onload = () => setCoinImgEl(img);
     img.src = url;
+  }
+
+  function handleImageUpload(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) loadFile(file);
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragging(true);
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    // Only clear if leaving the drop zone entirely (not a child element)
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDragging(false);
+    }
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) loadFile(file);
   }
 
   function clearImage() {
@@ -354,12 +378,22 @@ export default function Page() {
             ) : (
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full h-24 rounded-xl border-2 border-dashed border-white/[0.10] hover:border-[#FF7A1F]/50 hover:bg-[#FF7A1F]/[0.04] transition-all flex flex-col items-center justify-center gap-1.5 text-white/40 hover:text-white/60 cursor-pointer"
+                onDragOver={handleDragOver}
+                onDragEnter={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`w-full h-24 rounded-xl border-2 border-dashed transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer
+                  ${isDragging
+                    ? "border-[#FF7A1F] bg-[#FF7A1F]/10 text-white/80 scale-[1.02]"
+                    : "border-white/[0.10] hover:border-[#FF7A1F]/50 hover:bg-[#FF7A1F]/[0.04] text-white/40 hover:text-white/60"
+                  }`}
               >
                 <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
                 </svg>
-                <span className="text-xs font-medium">Upload PNG or SVG</span>
+                <span className="text-xs font-medium">
+                  {isDragging ? "Drop to use" : "Click or drop image here"}
+                </span>
               </button>
             )}
             <input
